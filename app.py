@@ -314,68 +314,73 @@ st.markdown("<div style='margin-top:1.4rem'></div>", unsafe_allow_html=True)
 tab_overview, tab_details = st.tabs(["Visao geral", "Detalhes"])
 
 with tab_overview:
+    st.subheader("Painel de uso e ativacoes")
+    metric_type = st.radio(
+        "Selecione a metrica para os graficos:",
+        ["Ativacoes (unicos)", "Uso (quantidade)"],
+        index=0,
+        horizontal=True,
+    )
+    top_n = st.selectbox("Top N para CR/Pais", [5, 10, 20, 50], index=1)
+
     left, right = st.columns([1.1, 1])
     with left:
-        st.subheader("Ativacoes por CR")
+        st.subheader(f"Por CR - {metric_type}")
         if filtered_data.empty:
             st.info("Sem dados para o filtro atual.")
         else:
-            cr_counts = (
-                filtered_data.groupby("Maintainer")["Terminal ID"]
-                .nunique()
-                .sort_values(ascending=False)
-                .head(12)
-            )
-            st.bar_chart(cr_counts)
-
-        st.subheader("Uso por CR (quantidade)")
-        if not filtered_data.empty:
-            cr_usage = (
-                filtered_data.groupby("Maintainer")["Terminal ID"]
-                .size()
-                .sort_values(ascending=False)
-                .head(12)
-            )
-            st.bar_chart(cr_usage)
+            if metric_type == "Ativacoes (unicos)":
+                cr_metric = (
+                    filtered_data.groupby("Maintainer")["Terminal ID"]
+                    .nunique()
+                    .sort_values(ascending=False)
+                    .head(top_n)
+                )
+            else:
+                cr_metric = (
+                    filtered_data.groupby("Maintainer")["Terminal ID"]
+                    .size()
+                    .sort_values(ascending=False)
+                    .head(top_n)
+                )
+            st.bar_chart(cr_metric)
 
     with right:
-        st.subheader("Ativacoes por Pais")
+        st.subheader(f"Por Pais - {metric_type}")
         if not filtered_data.empty:
-            country_counts = (
-                filtered_data.groupby("Country")["Terminal ID"]
+            if metric_type == "Ativacoes (unicos)":
+                country_metric = (
+                    filtered_data.groupby("Country")["Terminal ID"]
+                    .nunique()
+                    .sort_values(ascending=False)
+                    .head(top_n)
+                )
+            else:
+                country_metric = (
+                    filtered_data.groupby("Country")["Terminal ID"]
+                    .size()
+                    .sort_values(ascending=False)
+                    .head(top_n)
+                )
+            st.bar_chart(country_metric)
+
+    st.subheader(f"Por data - {metric_type}")
+    if not filtered_data.empty:
+        if metric_type == "Ativacoes (unicos)":
+            date_metric = (
+                filtered_data.dropna(subset=["End date & time"])
+                .groupby(filtered_data["End date & time"].dt.date)["Terminal ID"]
                 .nunique()
-                .sort_values(ascending=False)
+                .rename("Ativacoes")
             )
-            st.bar_chart(country_counts)
-
-        st.subheader("Uso por Pais (quantidade)")
-        if not filtered_data.empty:
-            country_usage = (
-                filtered_data.groupby("Country")["Terminal ID"]
+        else:
+            date_metric = (
+                filtered_data.dropna(subset=["End date & time"])
+                .groupby(filtered_data["End date & time"].dt.date)["Terminal ID"]
                 .size()
-                .sort_values(ascending=False)
+                .rename("Quantidade")
             )
-            st.bar_chart(country_usage)
-
-    st.subheader("Uso por data (quantidade)")
-    if not filtered_data.empty:
-        usage_series = (
-            filtered_data.dropna(subset=["End date & time"])
-            .groupby(filtered_data["End date & time"].dt.date)["Terminal ID"]
-            .size()
-            .rename("Quantidade")
-        )
-        st.line_chart(usage_series)
-
-    st.subheader("Linha do tempo de ativacoes")
-    if not filtered_data.empty:
-        time_series = (
-            filtered_data.dropna(subset=["End date & time"])
-            .groupby(filtered_data["End date & time"].dt.date)["Terminal ID"]
-            .nunique()
-            .rename("Ativacoes")
-        )
-        st.line_chart(time_series)
+        st.line_chart(date_metric)
 
 with tab_details:
     present_data = filtered_data.rename(columns=COLUMN_DISPLAY_MAP)
